@@ -108,6 +108,57 @@ def tokenize_and_stem(text):
     stems = [stemmer.stem(t) for t in tokens]
     return stems
 
+def analyze_documents(documents, question):
+    """Función para analizar documentos y calcular similitudes"""
+    if len(documents) < 1:
+        return None
+    
+    # Crear vectorizador TF-IDF
+    vectorizer = TfidfVectorizer(
+        tokenizer=tokenize_and_stem,
+        min_df=1
+    )
+    
+    # Ajustar con documentos
+    X = vectorizer.fit_transform(documents)
+    
+    # Calcular similitud con la pregunta
+    question_vec = vectorizer.transform([question])
+    similarities = cosine_similarity(question_vec, X).flatten()
+    
+    # Encontrar mejor respuesta
+    best_idx = similarities.argmax()
+    best_doc = documents[best_idx]
+    best_score = similarities[best_idx]
+    
+    # Matriz TF-IDF
+    df_tfidf = pd.DataFrame(
+        X.toarray(),
+        columns=vectorizer.get_feature_names_out(),
+        index=[f"Doc {i+1}" for i in range(len(documents))]
+    )
+    
+    # Stems coincidentes
+    vocab = vectorizer.get_feature_names_out()
+    q_stems = tokenize_and_stem(question)
+    matched = [s for s in q_stems if s in vocab and df_tfidf.iloc[best_idx].get(s, 0) > 0]
+    
+    return {
+        "best_idx": best_idx,
+        "best_doc": best_doc,
+        "best_score": best_score,
+        "similarities": similarities,
+        "documents": documents,
+        "df_tfidf": df_tfidf,
+        "matched_stems": matched
+    }
+
+# Inicializar session state
+if 'question' not in st.session_state:
+    st.session_state.question = "¿Qué es la inteligencia artificial?"
+if 'analyze_triggered' not in st.session_state:
+    st.session_state.analyze_triggered = False
+
 # Sección de entrada
 with st.container():
     st.markdown('<div class="input-section">', unsafe_allow_html=True)
@@ -117,11 +168,17 @@ with st.container():
         "",
         default_docs,
         height=150,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="documents"
     )
     
     st.markdown("**❓ Pregunta**")
-    question = st.text_input("", "¿Qué es la inteligencia artificial?", label_visibility="collapsed")
+    question = st.text_input(
+        "", 
+        st.session_state.question, 
+        label_visibility="collapsed",
+        key="question_input"
+    )
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -129,142 +186,117 @@ with st.container():
 st.markdown("**💡 Preguntas sugeridas:**")
 col1, col2 = st.columns(2)
 
+suggested_questions = [
+    "¿Qué es el aprendizaje automático?",
+    "¿Para qué sirven las redes neuronales?",
+    "¿Qué pueden generar los modelos de lenguaje?",
+    "¿Por qué es importante la ética en IA?",
+    "¿Qué utiliza la ciencia de datos?",
+    "¿Qué ayuda a entender el lenguaje natural?"
+]
+
 with col1:
-    if st.button("¿Qué es el aprendizaje automático?", use_container_width=True, key="q1"):
-        st.session_state.question = "¿Qué es el aprendizaje automático?"
-        st.rerun()
-    
-    if st.button("¿Para qué sirven las redes neuronales?", use_container_width=True, key="q2"):
-        st.session_state.question = "¿Para qué sirven las redes neuronales?"
-        st.rerun()
-        
-    if st.button("¿Qué pueden generar los modelos de lenguaje?", use_container_width=True, key="q3"):
-        st.session_state.question = "¿Qué pueden generar los modelos de lenguaje?"
-        st.rerun()
+    for i, suggested_q in enumerate(suggested_questions[:3]):
+        if st.button(suggested_q, use_container_width=True, key=f"suggest_{i}"):
+            st.session_state.question = suggested_q
+            st.session_state.analyze_triggered = True
+            st.rerun()
 
 with col2:
-    if st.button("¿Por qué es importante la ética en IA?", use_container_width=True, key="q4"):
-        st.session_state.question = "¿Por qué es importante la ética en IA?"
-        st.rerun()
-        
-    if st.button("¿Qué utiliza la ciencia de datos?", use_container_width=True, key="q5"):
-        st.session_state.question = "¿Qué utiliza la ciencia de datos?"
-        st.rerun()
-        
-    if st.button("¿Qué ayuda a entender el lenguaje natural?", use_container_width=True, key="q6"):
-        st.session_state.question = "¿Qué ayuda a entender el lenguaje natural?"
-        st.rerun()
+    for i, suggested_q in enumerate(suggested_questions[3:]):
+        if st.button(suggested_q, use_container_width=True, key=f"suggest_{i+3}"):
+            st.session_state.question = suggested_q
+            st.session_state.analyze_triggered = True
+            st.rerun()
 
-# Actualizar pregunta si se seleccionó una sugerida
-if 'question' in st.session_state:
-    question = st.session_state.question
+# Botón de análisis manual
+analyze_clicked = st.button("🚀 Analizar Documentos", type="primary", use_container_width=True)
 
-# Botón de análisis
-if st.button("🚀 Analizar Documentos", type="primary", use_container_width=True):
+# Realizar análisis si se activó
+if analyze_clicked or st.session_state.analyze_triggered:
     documents = [d.strip() for d in text_input.split("\n") if d.strip()]
     
     if len(documents) < 1:
         st.error("⚠️ Ingresa al menos un documento.")
-    elif not question.strip():
+    elif not st.session_state.question.strip():
         st.error("⚠️ Escribe una pregunta.")
     else:
         with st.spinner("🔍 Analizando documentos..."):
-            # Crear vectorizador TF-IDF
-            vectorizer = TfidfVectorizer(
-                tokenizer=tokenize_and_stem,
-                min_df=1
-            )
+            results = analyze_documents(documents, st.session_state.question)
             
-            # Ajustar con documentos
-            X = vectorizer.fit_transform(documents)
-            
-            # Calcular similitud con la pregunta
-            question_vec = vectorizer.transform([question])
-            similarities = cosine_similarity(question_vec, X).flatten()
-            
-            # Encontrar mejor respuesta
-            best_idx = similarities.argmax()
-            best_doc = documents[best_idx]
-            best_score = similarities[best_idx]
-
-            # RESULTADO PRINCIPAL
-            st.markdown('<div class="result-section">', unsafe_allow_html=True)
-            
-            # Header del resultado
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown("### 🎯 Mejor Coincidencia")
-                st.markdown(f"**Documento {best_idx + 1}**")
-            with col2:
-                if best_score > 0.3:
-                    sim_class = "similarity-high"
-                elif best_score > 0.1:
-                    sim_class = "similarity-medium"
-                else:
-                    sim_class = "similarity-low"
-                st.markdown(f'<div class="{sim_class}" style="font-size: 1.5rem; text-align: center;">{best_score:.3f}</div>', unsafe_allow_html=True)
-            
-            # Pregunta y respuesta
-            st.markdown("**Pregunta:**")
-            st.info(f"\"{question}\"")
-            
-            st.markdown("**Respuesta encontrada:**")
-            st.success(f"\"{best_doc}\"")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # MATRIZ TF-IDF
-            with st.expander("📊 Matriz TF-IDF", expanded=False):
-                df_tfidf = pd.DataFrame(
-                    X.toarray(),
-                    columns=vectorizer.get_feature_names_out(),
-                    index=[f"Doc {i+1}" for i in range(len(documents))]
-                )
-                st.dataframe(df_tfidf.round(3), use_container_width=True)
-
-            # TODAS LAS SIMILITUDES
-            with st.expander("📈 Todas las Similitudes", expanded=True):
-                sim_df = pd.DataFrame({
-                    "Documento": [f"Doc {i+1}" for i in range(len(documents))],
-                    "Similitud": similarities,
-                    "Texto": documents
-                })
+            if results:
+                # RESULTADO PRINCIPAL
+                st.markdown('<div class="result-section">', unsafe_allow_html=True)
                 
-                # Ordenar y mostrar
-                sim_df_sorted = sim_df.sort_values("Similitud", ascending=False)
+                # Header del resultado
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown("### 🎯 Mejor Coincidencia")
+                    st.markdown(f"**Documento {results['best_idx'] + 1}**")
+                with col2:
+                    if results['best_score'] > 0.3:
+                        sim_class = "similarity-high"
+                    elif results['best_score'] > 0.1:
+                        sim_class = "similarity-medium"
+                    else:
+                        sim_class = "similarity-low"
+                    st.markdown(f'<div class="{sim_class}" style="font-size: 1.5rem; text-align: center;">{results["best_score"]:.3f}</div>', unsafe_allow_html=True)
                 
-                for _, row in sim_df_sorted.iterrows():
-                    with st.container():
-                        col1, col2, col3 = st.columns([1, 2, 1])
-                        with col1:
-                            st.markdown(f"**{row['Documento']}**")
-                        with col2:
-                            st.caption(row['Texto'][:70] + "..." if len(row['Texto']) > 70 else row['Texto'])
-                        with col3:
-                            score = row['Similitud']
-                            if score > 0.3:
-                                sim_class = "similarity-high"
-                            elif score > 0.1:
-                                sim_class = "similarity-medium"
-                            else:
-                                sim_class = "similarity-low"
-                            st.markdown(f'<div class="{sim_class}" style="text-align: right;">{score:.3f}</div>', unsafe_allow_html=True)
-                        st.divider()
+                # Pregunta y respuesta
+                st.markdown("**Pregunta:**")
+                st.info(f"\"{st.session_state.question}\"")
+                
+                st.markdown("**Respuesta encontrada:**")
+                st.success(f"\"{results['best_doc']}\"")
+                
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            # STEMS COINCIDENTES
-            with st.expander("🔤 Términos Coincidentes", expanded=False):
-                vocab = vectorizer.get_feature_names_out()
-                q_stems = tokenize_and_stem(question)
-                matched = [s for s in q_stems if s in vocab and df_tfidf.iloc[best_idx].get(s, 0) > 0]
-                
-                if matched:
-                    st.markdown("**Términos encontrados:**")
-                    cols = st.columns(4)
-                    for i, stem in enumerate(matched):
-                        with cols[i % 4]:
-                            st.markdown(f'<div style="background: rgba(16, 185, 129, 0.2); padding: 0.5rem; border-radius: 6px; text-align: center; margin: 0.2rem;">{stem}</div>', unsafe_allow_html=True)
-                else:
-                    st.info("No se encontraron términos coincidentes significativos.")
+                # MATRIZ TF-IDF
+                with st.expander("📊 Matriz TF-IDF", expanded=False):
+                    st.dataframe(results['df_tfidf'].round(3), use_container_width=True)
+
+                # TODAS LAS SIMILITUDES
+                with st.expander("📈 Todas las Similitudes", expanded=True):
+                    sim_df = pd.DataFrame({
+                        "Documento": [f"Doc {i+1}" for i in range(len(results['documents']))],
+                        "Similitud": results['similarities'],
+                        "Texto": results['documents']
+                    })
+                    
+                    # Ordenar y mostrar
+                    sim_df_sorted = sim_df.sort_values("Similitud", ascending=False)
+                    
+                    for _, row in sim_df_sorted.iterrows():
+                        with st.container():
+                            col1, col2, col3 = st.columns([1, 2, 1])
+                            with col1:
+                                st.markdown(f"**{row['Documento']}**")
+                            with col2:
+                                st.caption(row['Texto'][:70] + "..." if len(row['Texto']) > 70 else row['Texto'])
+                            with col3:
+                                score = row['Similitud']
+                                if score > 0.3:
+                                    sim_class = "similarity-high"
+                                elif score > 0.1:
+                                    sim_class = "similarity-medium"
+                                else:
+                                    sim_class = "similarity-low"
+                                st.markdown(f'<div class="{sim_class}" style="text-align: right;">{score:.3f}</div>', unsafe_allow_html=True)
+                            st.divider()
+
+                # STEMS COINCIDENTES
+                with st.expander("🔤 Términos Coincidentes", expanded=False):
+                    if results['matched_stems']:
+                        st.markdown("**Términos encontrados:**")
+                        cols = st.columns(4)
+                        for i, stem in enumerate(results['matched_stems']):
+                            with cols[i % 4]:
+                                st.markdown(f'<div style="background: rgba(16, 185, 129, 0.2); padding: 0.5rem; border-radius: 6px; text-align: center; margin: 0.2rem;">{stem}</div>', unsafe_allow_html=True)
+                    else:
+                        st.info("No se encontraron términos coincidentes significativos.")
+    
+    # Resetear el trigger después del análisis
+    st.session_state.analyze_triggered = False
 
 # Información en acordeón
 with st.expander("ℹ️ Acerca del análisis", expanded=False):
