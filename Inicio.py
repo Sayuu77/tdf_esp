@@ -226,7 +226,6 @@ if analyze_clicked or st.session_state.analyze_triggered:
             
             if results:
                 # RESULTADO PRINCIPAL
-                st.markdown('<div class="result-section">', unsafe_allow_html=True)
                 
                 # Header del resultado
                 col1, col2 = st.columns([3, 1])
@@ -305,11 +304,11 @@ with st.expander("ℹ️ Acerca del análisis", expanded=False):
     
     Esta herramienta analiza la similitud semántica entre preguntas y documentos usando:
     
-    **📊 TF-IDF (Frecuencia de Término - Frecuencia Inversa de Documento)**
+    **TF-IDF (Frecuencia de Término - Frecuencia Inversa de Documento)**
     - Mide la importancia de palabras en documentos
     - Considera frecuencia local y global
     
-    **🎯 Similitud Coseno**
+    **Similitud Coseno**
     - Compara vectores de características
     - Rango: 0 (sin relación) a 1 (muy similar)
     
