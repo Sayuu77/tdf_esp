@@ -159,7 +159,6 @@ if 'analyze_triggered' not in st.session_state:
 
 # Sección de entrada
 with st.container():
-    st.markdown('<div class="input-section">', unsafe_allow_html=True)
     
     st.markdown("**📄 Documentos** (uno por línea)")
     text_input = st.text_area(
