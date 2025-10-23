@@ -87,8 +87,6 @@ st.markdown("""
 
 # Título principal
 st.markdown('<div class="main-title">🔍 Analizador TF-IDF</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Búsqueda semántica en documentos en español</div>', unsafe_allow_html=True)
-
 # Nuevos documentos de ejemplo más interesantes
 default_docs = """La inteligencia artificial está transformando la industria tecnológica.
 El aprendizaje automático permite a las computadoras aprender sin programación explícita.
