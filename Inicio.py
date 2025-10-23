@@ -154,8 +154,8 @@ def analyze_documents(documents, question):
     }
 
 # Inicializar session state
-if 'question' not in st.session_state:
-    st.session_state.question = "¿Qué es la inteligencia artificial?"
+if 'current_question' not in st.session_state:
+    st.session_state.current_question = "¿Qué es la inteligencia artificial?"
 if 'analyze_triggered' not in st.session_state:
     st.session_state.analyze_triggered = False
 
@@ -173,12 +173,18 @@ with st.container():
     )
     
     st.markdown("**❓ Pregunta**")
-    question = st.text_input(
+    
+    # Usar el valor de session_state para el campo de pregunta
+    question_input = st.text_input(
         "", 
-        st.session_state.question, 
+        value=st.session_state.current_question,
         label_visibility="collapsed",
         key="question_input"
     )
+    
+    # Actualizar session_state si el usuario escribe manualmente
+    if question_input != st.session_state.current_question:
+        st.session_state.current_question = question_input
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -198,14 +204,16 @@ suggested_questions = [
 with col1:
     for i, suggested_q in enumerate(suggested_questions[:3]):
         if st.button(suggested_q, use_container_width=True, key=f"suggest_{i}"):
-            st.session_state.question = suggested_q
+            # Actualizar la pregunta en session_state y campo de texto
+            st.session_state.current_question = suggested_q
             st.session_state.analyze_triggered = True
             st.rerun()
 
 with col2:
     for i, suggested_q in enumerate(suggested_questions[3:]):
         if st.button(suggested_q, use_container_width=True, key=f"suggest_{i+3}"):
-            st.session_state.question = suggested_q
+            # Actualizar la pregunta en session_state y campo de texto
+            st.session_state.current_question = suggested_q
             st.session_state.analyze_triggered = True
             st.rerun()
 
@@ -215,14 +223,15 @@ analyze_clicked = st.button("🚀 Analizar Documentos", type="primary", use_cont
 # Realizar análisis si se activó
 if analyze_clicked or st.session_state.analyze_triggered:
     documents = [d.strip() for d in text_input.split("\n") if d.strip()]
+    current_question = st.session_state.current_question
     
     if len(documents) < 1:
         st.error("⚠️ Ingresa al menos un documento.")
-    elif not st.session_state.question.strip():
+    elif not current_question.strip():
         st.error("⚠️ Escribe una pregunta.")
     else:
         with st.spinner("🔍 Analizando documentos..."):
-            results = analyze_documents(documents, st.session_state.question)
+            results = analyze_documents(documents, current_question)
             
             if results:
                 # RESULTADO PRINCIPAL
@@ -244,7 +253,7 @@ if analyze_clicked or st.session_state.analyze_triggered:
                 
                 # Pregunta y respuesta
                 st.markdown("**Pregunta:**")
-                st.info(f"\"{st.session_state.question}\"")
+                st.info(f"\"{current_question}\"")
                 
                 st.markdown("**Respuesta encontrada:**")
                 st.success(f"\"{results['best_doc']}\"")
