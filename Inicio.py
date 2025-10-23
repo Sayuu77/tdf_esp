@@ -154,8 +154,8 @@ def analyze_documents(documents, question):
     }
 
 # Inicializar session state
-if 'current_question' not in st.session_state:
-    st.session_state.current_question = "¿Qué es la inteligencia artificial?"
+if 'question' not in st.session_state:
+    st.session_state.question = "¿Qué es la inteligencia artificial?"
 if 'analyze_triggered' not in st.session_state:
     st.session_state.analyze_triggered = False
 
@@ -173,18 +173,12 @@ with st.container():
     )
     
     st.markdown("**❓ Pregunta**")
-    
-    # Usar el valor de session_state para el campo de pregunta
-    question_input = st.text_input(
+    question = st.text_input(
         "", 
-        value=st.session_state.current_question,
+        st.session_state.question, 
         label_visibility="collapsed",
         key="question_input"
     )
-    
-    # Actualizar session_state si el usuario escribe manualmente
-    if question_input != st.session_state.current_question:
-        st.session_state.current_question = question_input
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -204,34 +198,31 @@ suggested_questions = [
 with col1:
     for i, suggested_q in enumerate(suggested_questions[:3]):
         if st.button(suggested_q, use_container_width=True, key=f"suggest_{i}"):
-            # Actualizar la pregunta en session_state y campo de texto
-            st.session_state.current_question = suggested_q
+            st.session_state.question = suggested_q
             st.session_state.analyze_triggered = True
             st.rerun()
 
 with col2:
     for i, suggested_q in enumerate(suggested_questions[3:]):
         if st.button(suggested_q, use_container_width=True, key=f"suggest_{i+3}"):
-            # Actualizar la pregunta en session_state y campo de texto
-            st.session_state.current_question = suggested_q
+            st.session_state.question = suggested_q
             st.session_state.analyze_triggered = True
             st.rerun()
 
 # Botón de análisis manual
-analyze_clicked = st.button("🚀 Analizar Documentos", type="primary", use_container_width=True)
+analyze_clicked = st.button("Analizar Documentos", type="primary", use_container_width=True)
 
 # Realizar análisis si se activó
 if analyze_clicked or st.session_state.analyze_triggered:
     documents = [d.strip() for d in text_input.split("\n") if d.strip()]
-    current_question = st.session_state.current_question
     
     if len(documents) < 1:
         st.error("⚠️ Ingresa al menos un documento.")
-    elif not current_question.strip():
+    elif not st.session_state.question.strip():
         st.error("⚠️ Escribe una pregunta.")
     else:
         with st.spinner("🔍 Analizando documentos..."):
-            results = analyze_documents(documents, current_question)
+            results = analyze_documents(documents, st.session_state.question)
             
             if results:
                 # RESULTADO PRINCIPAL
@@ -240,7 +231,7 @@ if analyze_clicked or st.session_state.analyze_triggered:
                 # Header del resultado
                 col1, col2 = st.columns([3, 1])
                 with col1:
-                    st.markdown("### 🎯 Mejor Coincidencia")
+                    st.markdown("Mejor Coincidencia")
                     st.markdown(f"**Documento {results['best_idx'] + 1}**")
                 with col2:
                     if results['best_score'] > 0.3:
@@ -253,7 +244,7 @@ if analyze_clicked or st.session_state.analyze_triggered:
                 
                 # Pregunta y respuesta
                 st.markdown("**Pregunta:**")
-                st.info(f"\"{current_question}\"")
+                st.info(f"\"{st.session_state.question}\"")
                 
                 st.markdown("**Respuesta encontrada:**")
                 st.success(f"\"{results['best_doc']}\"")
@@ -261,11 +252,11 @@ if analyze_clicked or st.session_state.analyze_triggered:
                 st.markdown('</div>', unsafe_allow_html=True)
 
                 # MATRIZ TF-IDF
-                with st.expander("📊 Matriz TF-IDF", expanded=False):
+                with st.expander("Matriz TF-IDF", expanded=False):
                     st.dataframe(results['df_tfidf'].round(3), use_container_width=True)
 
                 # TODAS LAS SIMILITUDES
-                with st.expander("📈 Todas las Similitudes", expanded=True):
+                with st.expander("Todas las Similitudes", expanded=True):
                     sim_df = pd.DataFrame({
                         "Documento": [f"Doc {i+1}" for i in range(len(results['documents']))],
                         "Similitud": results['similarities'],
@@ -322,7 +313,7 @@ with st.expander("ℹ️ Acerca del análisis", expanded=False):
     - Compara vectores de características
     - Rango: 0 (sin relación) a 1 (muy similar)
     
-    **📈 Interpretación de resultados:**
+    **Interpretación de resultados:**
     - 🟢 > 0.3: Alta similitud
     - 🟠 0.1 - 0.3: Similitud media  
     - 🔴 < 0.1: Baja similitud
